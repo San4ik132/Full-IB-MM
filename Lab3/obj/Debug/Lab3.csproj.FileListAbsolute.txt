@@ -1,0 +1,8 @@
+D:\4 - kurs\Математическое моделирование\Лабораторыне работы\Lab3\bin\Debug\Lab3.exe.config
+D:\4 - kurs\Математическое моделирование\Лабораторыне работы\Lab3\bin\Debug\Lab3.exe
+D:\4 - kurs\Математическое моделирование\Лабораторыне работы\Lab3\bin\Debug\Lab3.pdb
+D:\4 - kurs\Математическое моделирование\Лабораторыне работы\Lab3\obj\Debug\Lab3.csproj.AssemblyReference.cache
+D:\4 - kurs\Математическое моделирование\Лабораторыне работы\Lab3\obj\Debug\Lab3.csproj.SuggestedBindingRedirects.cache
+D:\4 - kurs\Математическое моделирование\Лабораторыне работы\Lab3\obj\Debug\Lab3.csproj.CoreCompileInputs.cache
+D:\4 - kurs\Математическое моделирование\Лабораторыне работы\Lab3\obj\Debug\Lab3.exe
+D:\4 - kurs\Математическое моделирование\Лабораторыне работы\Lab3\obj\Debug\Lab3.pdb

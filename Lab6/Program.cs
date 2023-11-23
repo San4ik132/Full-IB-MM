@@ -1,203 +1,251 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Runtime.InteropServices;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Lab6
 {
-    internal class Program
+    class TransportProblem
     {
-        static bool[,] SerZap(int[] a, int[] b, int[,] c)
-        {
-            bool[,] zapol = new bool[3, 5];
-            for (int i = 0; i < a.Length; i++)
-            {
-                for (int j = 0; j < b.Length; j++)
-                {
-                    if (b[j] != 0)
-                    {
-                        zapol[i,j] = true;
-                        c[i, j] = Math.Min(a[i], b[j]);
-                        a[i] -= c[i, j];
-                        b[j] -= c[i, j];
 
-                        if (a[i] == 0)
-                            break;
-                    }
-                }
-            }
-            return zapol;
+        static void Main()
+        {
+            int[] supply = { 310, 250, 240 };
+            int[] demand = { 290, 110, 170, 130, 100 };
+            int[,] cost =
+            {
+            { 7, 9, 5, 6, 3 },
+            { 4, 6, 8, 6, 7 },
+            { 6, 4, 9, 5, 2 }
+        };
+            int[,] result = SolveTransportProblem(supply, demand, cost);
+            int totalCostBeforeOptimization = CalculateTotalCost(result, cost);
+
+            Console.WriteLine("Распределение до оптимизации:");
+            PrintResult(result);
+            Console.WriteLine("Общая стоимость до оптимизации: " + totalCostBeforeOptimization);
+
+            int totalCostAfterOptimization = OptimizeUsingPotentialMethod(result, cost, supply, demand);
+            int[,] result2 = SolveTransportProblemUsingMinCostMethod(supply, demand, cost);
+            int totalCost2 = CalculateTotalCost(result2, cost);
+            Console.WriteLine("Распределение после оптимизации:");
+            PrintResult(result);
+            Console.WriteLine("Общая стоимость после оптимизации: " + totalCost2);
         }
 
-
-
-        static int Sum(int[,] A, int[,] B)
+        static int OptimizeUsingPotentialMethod(int[,] distribution, int[,] cost, int[] supply, int[] demand)
         {
-            if (A.GetLength(0) != B.GetLength(0) || A.GetLength(1) != B.GetLength(1))
-            {
-                // Проверяем, что размеры матриц совпадают
-                throw new ArgumentException("Матрицы A и B должны иметь одинаковый размер");
-            }
+            int m = supply.Length;
+            int n = demand.Length;
+            int[] u = new int[m];
+            int[] v = new int[n];
+            bool[] usedU = new bool[m];
+            bool[] usedV = new bool[n];
 
-            int rows = A.GetLength(0);
-            int columns = A.GetLength(1);
-
-            int[,] result = new int[rows, columns];
-
-            for (int i = 0; i < rows; i++)
-            {
-                for (int j = 0; j < columns; j++)
-                {
-                    result[i, j] = A[i, j] * B[i, j];
-                }
-            }
-
-
-            // Вычисление суммы всех элементов в полученной матрице
-            int sum = 0;
-            for (int i = 0; i < result.GetLength(0); i++)
-            {
-                for (int j = 0; j < result.GetLength(1); j++)
-                {
-                    sum += result[i, j];
-                }
-            }
-
-            return sum;
-        }
-
-
-        static (int[], int[]) Potencial(int[] supply, int[] demand, int[,] cost, bool[,] zapol)
-        {
-            int n = supply.Length;
-            int m = demand.Length;
-
-            int[] alfa = new int[n];
-            int[] beta = new int[m];
-
-            for (int i = 0; i < n; i++)
-                alfa[i] = Int32.MinValue;
-
-            for (int j = 0; j < m; j++)
-                beta[j] = Int32.MinValue;
-
-            alfa[0] = 0;
-
-            bool f;
+            // Оптимизация распределения
+            bool optimized;
             do
             {
-                f = false;
-
-                for (int i = 0; i < n; i++)
+                optimized = true;
+                for (int i = 0; i < m; i++)
                 {
-                    for (int j = 0; j < m; j++)
+                    for (int j = 0; j < n; j++)
                     {
-                        
-                        if (zapol[i,j])
+                        if (distribution[i, j] == 0) // Работаем только с пустыми клетками
                         {
-                            if (alfa[i] == Int32.MinValue && beta[j] != Int32.MinValue)
-                                alfa[i] = cost[i, j] - beta[j];
-                            else if (alfa[i] != Int32.MinValue && beta[j] == Int32.MinValue)
-                                beta[j] = cost[i, j] - alfa[i];
+                            int delta = cost[i, j] - (u[i] + v[j]);
+                            if (delta < 0)
+                            {
+                                optimized = false;
+                                Redistribute(distribution, cost, u, v, i, j);
+
+                            }
+                        }
+                    }
+                }
+            } while (!optimized);
+            return CalculateTotalCost(distribution, cost);
+        }
+        static int[,] SolveTransportProblemUsingMinCostMethod(int[] supply, int[] demand, int[,] cost)
+        {
+            int m = supply.Length;
+            int n = demand.Length;
+            int[,] distribution = new int[m, n];
+
+            // Копии массивов предложения и спроса
+            int[] supplyLeft = (int[])supply.Clone();
+            int[] demandLeft = (int[])demand.Clone();
+
+            while (supplyLeft.Sum() > 0 && demandLeft.Sum() > 0)
+            {
+                // Находим клетку с минимальной стоимостью
+                int minCost = int.MaxValue;
+                int minI = -1, minJ = -1;
+                for (int i = 0; i < m; i++)
+                {
+                    for (int j = 0; j < n; j++)
+                    {
+                        if (supplyLeft[i] > 0 && demandLeft[j] > 0 && cost[i, j] < minCost)
+                        {
+                            minCost = cost[i, j];
+                            minI = i;
+                            minJ = j;
                         }
                     }
                 }
 
-                for (int i = 0; i < n; i++)
-                    if (alfa[i] == Int32.MinValue)
-                        f = true;
-
-                for (int j = 0; j < m; j++)
-                    if (beta[j] == Int32.MinValue)
-                        f = true;
-
-            } while (f);
-
-            return (alfa, beta);
-        }
-
-        static int[,] Ozenka(int n, int m, bool[,] zapol, int[] alfa, int[] beta, int[,] cost)
-        {
-            int[,] delta = new int[3, 5];
-            for (int i = 0; i < n; i++)
-            {
-                for (int j = 0; j < m; j++)
-                {
-                    if (!zapol[i, j])
-                        delta[i, j] = beta[j] + alfa[i] - cost[i, j];
-                    else
-                        delta[i, j] = 0;
-                }
+                // Распределяем груз в найденной клетке
+                int allocation = Math.Min(supplyLeft[minI], demandLeft[minJ]);
+                distribution[minI, minJ] = allocation;
+                supplyLeft[minI] -= allocation;
+                demandLeft[minJ] -= allocation;
             }
-            return delta;
+
+            return distribution;
         }
-        static bool Optim(bool[,] zapol, int[,] delta)
-        { 
-            bool f = true;
-            for (int i = 0; i < 3; i++)
+        static bool Redistribute(int[,] distribution, int[,] cost, int[] u, int[] v, int startI, int startJ)
+        {
+            var path = FindCycle(distribution, startI, startJ);
+            if (path == null || path.Count <= 1) return false; // Если цикл не найден, возвращаем false
+
+            // Поиск минимального количества груза для перераспределения
+            int minTransfer = int.MaxValue;
+            for (int k = 1; k < path.Count; k += 2)
             {
-                for (int j = 0; j < 5; j++)
+                int i = path[k].Item1;
+                int j = path[k].Item2;
+                minTransfer = Math.Min(minTransfer, distribution[i, j]);
+            }
+
+            // Перераспределение груза
+            for (int k = 0; k < path.Count; k++)
+            {
+                int i = path[k].Item1;
+                int j = path[k].Item2;
+                if (k % 2 == 0)
+                    distribution[i, j] += minTransfer; // Добавляем груз
+                else
+                    distribution[i, j] -= minTransfer; // Убираем груз
+            }
+
+            return true; // Возвращаем true, указывая на успешное перераспределение
+        }
+
+        static List<Tuple<int, int>> FindCycle(int[,] distribution, int startI, int startJ)
+        {
+            // Это упрощенная реализация; на практике она может быть гораздо сложнее.
+            int m = distribution.GetLength(0);
+            int n = distribution.GetLength(1);
+            bool[,] visited = new bool[m, n];
+            List<Tuple<int, int>> path = new List<Tuple<int, int>>();
+
+            if (DFS(distribution, visited, path, startI, startJ, startI, startJ, true))
+            {
+                return path;
+            }
+
+            return new List<Tuple<int, int>>(); // Возвращаем пустой список, если цикл не найден
+        }
+
+
+
+        static bool DFS(int[,] distribution, bool[,] visited, List<Tuple<int, int>> path, int i, int j, int startI, int startJ, bool isHorizontal)
+        {
+            // Проверяем, была ли клетка уже посещена
+            if (visited[i, j]) return false;
+
+            // Добавляем клетку в путь
+            path.Add(new Tuple<int, int>(i, j));
+            visited[i, j] = true;
+
+            // Проверяем, является ли текущая клетка частью цикла
+            if (i == startI && j == startJ && path.Count > 1) return true;
+
+            int m = distribution.GetLength(0);
+            int n = distribution.GetLength(1);
+
+            // Ищем следующую клетку для продолжения пути
+            if (isHorizontal)
+            {
+                for (int newJ = 0; newJ < n; newJ++)
                 {
-                    if (!(zapol[i, j]) && (delta[i, j] > 0))
+                    if (newJ != j && distribution[i, newJ] > 0)
                     {
-                        f = false;
+                        if (DFS(distribution, visited, path, i, newJ, startI, startJ, !isHorizontal))
+                            return true;
                     }
                 }
             }
-            return f;
+            else
+            {
+                for (int newI = 0; newI < m; newI++)
+                {
+                    if (newI != i && distribution[newI, j] > 0)
+                    {
+                        if (DFS(distribution, visited, path, newI, j, startI, startJ, !isHorizontal))
+                            return true;
+                    }
+                }
+            }
+
+            // Если цикл не найден, откатываем последний шаг
+            path.RemoveAt(path.Count - 1);
+            visited[i, j] = false;
+
+            return false;
         }
 
-       
-
-
-
-        static void Main(string[] args)
+        static int[,] SolveTransportProblem(int[] supply, int[] demand, int[,] cost)
         {
-            int[] a = { 310, 250, 240 };
-            int[] b = { 290, 110, 170, 130, 100 };
-            int[,] c1 = {{ 7, 9, 5, 6, 3 },
-                         { 4, 6, 8, 6, 7 },
-                         { 6, 4, 9, 5, 2 }
-            };
+            int[,] result = new int[supply.Length, demand.Length];
+            int[] supplyLeft = (int[])supply.Clone();
+            int[] demandLeft = (int[])demand.Clone();
 
-            int[,] c = new int[3, 5];
+            Console.WriteLine("Начальное распределение:");
+            PrintResult(result);
 
-            bool[,] zapol = SerZap(a, b, c);
+            int i = 0, j = 0;
 
-
-            for (int i = 0; i < c.GetLength(0); ++i)
+            while (i < supply.Length && j < demand.Length)
             {
-                for (int j = 0; j < c.GetLength(1); ++j)
+                int allocation = Math.Min(supplyLeft[i], demandLeft[j]);
+                result[i, j] = allocation;
+                supplyLeft[i] -= allocation;
+                demandLeft[j] -= allocation;
+
+                Console.WriteLine($"Распределяем {allocation} единиц из А{i + 1} в В{j + 1}");
+                PrintResult(result);
+
+                if (supplyLeft[i] == 0) i++;
+                else if (demandLeft[j] == 0) j++;
+            }
+
+            return result;
+        }
+
+        static int CalculateTotalCost(int[,] result, int[,] cost)
+        {
+            int totalCost = 0;
+            for (int i = 0; i < result.GetLength(0); i++)
+            {
+                for (int j = 0; j < result.GetLength(1); j++)
                 {
-                    
-                    Console.Write("{0,4}", c[i, j]);
+                    totalCost += result[i, j] * cost[i, j];
+                }
+            }
+            return totalCost;
+        }
+
+        static void PrintResult(int[,] result)
+        {
+            for (int i = 0; i < result.GetLength(0); i++)
+            {
+                for (int j = 0; j < result.GetLength(1); j++)
+                {
+                    Console.Write(result[i, j] + "\t");
                 }
                 Console.WriteLine();
             }
             Console.WriteLine();
-            Console.WriteLine(Sum(c,c1));
-            Console.WriteLine();
-            Console.WriteLine(string.Join(" ", Potencial(a, b, c1, zapol).Item1));
-            Console.WriteLine(string.Join(" ", Potencial(a, b, c1, zapol).Item2));
-
-            int[,] d =  Ozenka(3, 5, zapol, Potencial(a, b, c1, zapol).Item1, Potencial(a, b, c1, zapol).Item2, c1);
-
-            for (int i = 0; i < d.GetLength(0); ++i)
-            {
-                for (int j = 0; j < d.GetLength(1); ++j)
-                {
-
-                    Console.Write("{0,4}", d[i, j]);
-                }
-                Console.WriteLine();
-            }
-
-            Console.WriteLine(Optim(zapol, Ozenka(3, 5, zapol, Potencial(a, b, c1, zapol).Item1, Potencial(a, b, c1, zapol).Item2, c1)));
-
-
-            
         }
     }
 }
